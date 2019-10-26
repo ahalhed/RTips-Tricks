@@ -9,7 +9,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-setwd("/Volumes/RED-USB/Courses/RUsersGroup/Markdown_Tutorial")
+setwd("~/Markdown_Tutorial")
 ```
 
 
