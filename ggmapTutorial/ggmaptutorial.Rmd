@@ -1,0 +1,149 @@
+---
+title: "ggmap Tutorial"
+author: "Alicia Halhed"
+date: "25/10/2019"
+output: html_document
+---
+
+#Set up 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+#don't forget to set your working directory to wherever your files are!
+
+#install required packages
+#install.packages("tidyverse", "ggmap")
+
+#attach required packages
+library(tidyverse)
+library(ggmap) #ggmap loads ggplot2 alongside it
+```
+
+# Plotting with ggplot2
+The ggplot2 package is a dynamic plotting package in R. There are a variety of packages, such as `ggtree` and `ggmap`, that build on the ggplot2 plotting structure to make it even more versatile for specific applications.
+
+# A note on RMarkdown
+This tutorial was written in RMarkdown rather than in an RScript. I personally like working in RMarkdown because it allows me to keep my code better organized and gives me the option to export reports or presentations in various formats (PDF, HTML, Powerpoint, Word, etc). If you would like to learn more about using RMarkdown, please see [this](https://github.com/ahalhed/RTutorials.git) RMarkdown tutorial.
+
+# Crime data
+This is a data set existing in R that contains information for some crimes committed in the Houston Texas area from January to August 2010.
+
+Let's explore our crime data using R. 
+```{r}
+crime_data <- read.csv('crime_data.csv')
+View(crime_data)
+```
+
+```{r}
+# Let's look at some general features of the data
+class(crime_data)
+# What information do we have?
+colnames(crime_data)
+# We have lon and lat! This is important for using ggmap.
+# General stats about the data
+summary(crime_data)
+# What crimes are being committed?
+crime_data$offense %>% unique
+# Where are the crimes being committed?
+crime_data$location %>% unique
+
+```
+
+```{r}
+# What is the average latitude/longitude?
+mean(crime_data$lat, na.rm = TRUE) #29.75775
+mean(crime_data$lon, na.rm = TRUE) #-95.41647
+# What is the minimum latitude/longitude?
+max(crime_data$lat, na.rm = TRUE) #37.3369
+max(crime_data$lon, na.rm = TRUE) #-91.94627
+# What is the maximum latitude/longitude?
+min(crime_data$lat, na.rm = TRUE) #27.50711
+min(crime_data$lon, na.rm = TRUE) #-99.50555
+# This information is also found in the output of the summary function
+```
+
+With the information about the latitude and longitude values, we can select the parameters for grabbing the map. For latitude, a range of 25 to 40 will encompass all the data. For longitude, a range of -89 to -102 will encompass all the data. Now we can grab our map!
+
+```{r}
+map_crime <- get_map(
+  location = c(left = -102, bottom = 25, right = -89, top = 40),
+  source = "osm",
+  force = TRUE) # adding force = TRUE to get_map to force a re-rendering of the map
+# Let's look at our map
+ggmap(map_crime)
+```
+
+
+```{r, warning=FALSE}
+# Let's just throw everything onto the map to see what we've got
+ggmap(map_crime) + # use ggmap to call the map
+  # Everything below here follows the ggplot2 syntax of adding elements to the plot
+  # Remember to add your + between elements
+  geom_point(data = crime_data, # this is the data being called by the dataset
+             aes(x = lon, y = lat, # these are our x and y axis elements
+             color = month)) #the colours represent the month of the crime
+```
+
+Looking at the map, we can see that most of the crime data is coming from Houston, Texas. Let's try making a new map that only plots on the Houston area
+```{r}
+# coordinates for Houston are 29.7604° N, 95.3698° W
+map_houston <- get_map(
+  location = c(left = -95.8, bottom = 29.45, right = -95.05, top = 30.25), # This gives a buffer zone around the coordinates of the city
+  source = "osm",
+  force = TRUE) # adding force = TRUE to get_map to force a re-rendering of the map
+# Let's look at our map
+ggmap(map_houston) # gmmap automatically puts latitude and longitude on the appropriate axis, so we don't have to specify it as an aesthetic later
+```
+
+Let's say we want to know about how much crime of each type happens each month in the Houston area.
+```{r, warning=FALSE}
+ggmap(map_houston) + # We can start with the Houston map
+  geom_point(data = crime_data, # we are going to overlay a scatter plot of crime_data
+             aes(color = offense)) + # colouring the points by the crime committed
+  facet_wrap(~month) # facetting allows us to have a separate panel for each month
+```
+
+Wow! That's a lot of data on that plot, which makes sense considering that there is information for `r nrow(crime_data)` crimes.
+```{r}
+#one might consider taking a random sample of the data if they would like to work with fewer data points (I've chosen 100 here)
+mysample <- crime_data[sample(1:nrow(crime_data), 100, replace=FALSE),]
+View(mysample)
+```
+
+```{r, warning=FALSE}
+# Let's recreate the plot we made before with mysample
+ggmap(map_houston) +
+  geom_point(data = mysample,
+             aes(color = offense)) +
+  facet_wrap(~month)
+```
+This is nicer to look at!
+
+## Challenge Time!
+There is a lot of information in this data set and looking at all of it isn't necessarily all relevant at once. We also can tell too much from those monthly plots. Here are some questions we can try to answer from this data and could explore on a map. Feel free to come up with your own!
+* What is the most common crime in January? How common is that crime in other months?
+* Do residential crimes occur more frequently during the week or on the weekend?
+* Are there more crimes committed in the summer (June through August) or at other times of the year?
+* Is there any association between the first letter of a street name and the number of crimes on that street?
+* Which beats have the highest crime rates? What crimes are happening there?
+* Holidays are an exciting time where many poeple have a bit too much fun. What does crime look like on holidays like New Year's day or the 4th of July?
+
+For example, if we wanted to know about where thefts are committed at 10 pm on Fridays in the coldest part of the winter (January). 
+```{r, message=FALSE, warning=FALSE}
+# We would first go through the data to sort for Friday and 
+crime_10friday <- crime_data[ which(crime_data$day=='friday' & 
+                                      crime_data$hour == 22 & 
+                                      crime_data$offense == 'theft' & 
+                                      crime_data$month == 'january'), ]
+# Let's look at what we got
+View(crime_10friday)
+# We can throw this onto our map
+ggmap(map_houston) +
+  geom_point(data = crime_10friday,
+             aes(color = beat)) # Do we all know what a beat is?
+```
+
+
+
+
